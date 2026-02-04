@@ -1,220 +1,159 @@
 import { useState } from "react"
-
+import { useFetch } from "../../hooks/useFetch" 
+import { useNavigate } from "react-router"
+import { useForm } from "react-hook-form"
+import { toast, ToastContainer } from "react-toastify"
+import { Sparkles, User, UploadCloud, Loader2, BrainCircuit } from "lucide-react" 
+import { motion } from "framer-motion"
 
 export const Form = () => {
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const navigate = useNavigate()
+    const fetchDataBackend = useFetch() // Asegúrate que esto devuelva la data de axios directamente
 
-    const [stateAvatar, setStateAvatar] = useState({
-        generatedImage: "https://cdn-icons-png.flaticon.com/512/2138/2138440.png",
-        prompt: "",
-        loading: false
+    const { register, handleSubmit, watch, formState: { errors } } = useForm({
+        defaultValues: {
+            type: "cv", // Mismo valor que el enum de tu modelo Interview.js
+        }
     })
 
-    const [selectedOption , setSelectedOption ] = useState("ia")
+    const selectedType = watch("type");
 
+    const onSubmit = async (dataForm) => {
+        setIsSubmitting(true)
+        try {
+            // 1. Obtención del Token
+            const authStorage = JSON.parse(localStorage.getItem("auth-token"))
+            const token = authStorage?.state?.token || authStorage?.token;
 
+            if (!token) {
+                toast.error("Debes iniciar sesión");
+                return navigate("/login");
+            }
+
+            const headers = { Authorization: `Bearer ${token}` }
+            const baseURL = import.meta.env.VITE_BACKEND_URL;
+
+            // --- PASO 1: SUBIR CV (Endpoint: /interview/upload-cv) ---
+            const cvFormData = new FormData()
+            if (dataForm.cvFile && dataForm.cvFile[0]) {
+                // 'cv' es el nombre exacto que espera upload.single('cv') en tus rutas
+                cvFormData.append("cv", dataForm.cvFile[0]) 
+            } else {
+                toast.error("El archivo PDF es obligatorio");
+                setIsSubmitting(false);
+                return;
+            }
+
+            console.log("📤 Subiendo archivo...");
+            const uploadRes = await fetchDataBackend(`${baseURL}/interview/upload-cv`, cvFormData, "POST", headers)
+            
+            // Tu back devuelve { msg: "...", cvId: "..." }
+            if (!uploadRes?.cvId) {
+                throw new Error(uploadRes?.msg || "Error al procesar el CV");
+            }
+
+            // --- PASO 2: INICIAR SIMULACIÓN (Endpoint: /interview/start) ---
+            // El body debe coincidir con: const { type, data, cvId } = req.body
+            const simulationBody = {
+                type: dataForm.type, // 'cv', 'tech_stack', etc.
+                cvId: uploadRes.cvId,
+                data: dataForm.contextoExtra || "Sin detalles adicionales"
+            }
+
+            console.log("🤖 Iniciando IA...");
+            const startRes = await fetchDataBackend(`${baseURL}/interview/start`, simulationBody, "POST", headers)
+
+            if (startRes?.interviewId) {
+                toast.success("¡Simulación preparada!");
+                setTimeout(() => navigate(`/dashboard/chat/${startRes.interviewId}`), 1500)
+            }
+
+        } catch (error) {
+            console.error("Error completo:", error);
+            const msgError = error.response?.data?.msg || error.message || "Error en el servidor";
+            toast.error(msgError);
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
+
+    // Estilos Visuales
+    const inputStyle = "w-full py-3 px-4 rounded-xl border-2 border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 outline-none focus:border-emerald-500 transition-all text-sm";
+    const labelStyle = "text-xs font-bold uppercase tracking-wider text-zinc-500 mb-2 block";
 
     return (
-
-        <form>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto p-6">
+            <ToastContainer theme="dark" />
             
+            <div className="text-center mb-10">
+                <h1 className="text-3xl font-black text-zinc-800 dark:text-white flex items-center justify-center gap-3">
+                    <BrainCircuit className="text-emerald-500" size={32} />
+                    Configura tu Entrevista con IA
+                </h1>
+                <p className="text-zinc-500 mt-2">Sube tu CV y deja que Gémini haga el resto</p>
+            </div>
 
-            {/* Información del propietario */}
-            <fieldset className="border-2 border-gray-500 p-6 rounded-lg shadow-lg">
-
-                <legend className="text-xl font-bold text-gray-700 bg-gray-200 px-4 py-1 rounded-md">
-                    Información del propietario
-                </legend>
-
-                {/* Cédula */}
-                <div>
-                    <label className="mb-2 block text-sm font-semibold">Cédula</label>
-                    <div className="flex items-center gap-10 mb-5">
-                        <input
-                            type="number"
-                            inputMode="numeric"
-                            placeholder="Ingresa la cédula"
-                            className="block w-full rounded-md border border-gray-300 py-1 px-2 text-gray-500"
-                        />
-                        <button className="py-1 px-8 bg-gray-600 text-slate-300 border rounded-xl hover:scale-110 
-                        duration-300 hover:bg-gray-900 hover:text-white sm:w-80">
-                            Consultar
-                        </button>
-                    </div>
-                </div>
-
-
-
-                {/* Campo nombres completos */}
-                <div>
-                    <label className="mb-2 block text-sm font-semibold">Nombres completos</label>
-                    <input
-                        type="text"
-                        placeholder="Ingresa nombre y apellido"
-                        className="block w-full rounded-md border border-gray-300 py-1 px-2 text-gray-500 mb-5"
-                    />
-                </div>
-
-
-                {/* Campo correo electrónico */}
-                <div>
-                    <label className="mb-2 block text-sm font-semibold">Correo electrónico</label>
-                    <input
-                        type="email"
-                        placeholder="Ingresa el correo electrónico"
-                        className="block w-full rounded-md border border-gray-300 py-1 px-2 text-gray-500 mb-5"
-                    />
-                </div>
-
-
-                {/* Campo celular */}
-                <div>
-                    <label className="mb-2 block text-sm font-semibold">Celular</label>
-                    <input
-                        type="text"
-                        inputMode="tel"
-                        placeholder="Ingresa el celular"
-                        className="block w-full rounded-md border border-gray-300 py-1 px-2 text-gray-500 mb-5"
-                    />
-                </div>
-
-            </fieldset>
-
-
-
-            {/* Información del paciente */}
-
-            <fieldset className="border-2 border-gray-500 p-6 rounded-lg shadow-lg mt-10">
-
-                <legend className="text-xl font-bold text-gray-700 bg-gray-200 px-4 py-1 rounded-md">
-                    Información de la mascota
-                </legend>
-
-
-                {/* Campo nombre de la mascota */}
-                <div>
-                    <label className="mb-2 block text-sm font-semibold">Nombre</label>
-                    <input
-                        type="text"
-                        placeholder="Ingresar nombre"
-                        className="block w-full rounded-md border border-gray-300 py-1 px-2 text-gray-500 mb-5"
-                    />
-                </div>
-
-
-                {/* Campo imagen de la mascota*/}
-                <label className="mb-2 block text-sm font-semibold">Imagen de la mascota</label>
-                
-                <div className="flex gap-4 mb-2">
-                    {/* Opción: Imagen con IA */}
-                    <label className="flex items-center gap-2">
-                        <input
-                            type="radio"
-                            value="ia"
-                        />
-                        Generar con IA
-                    </label>
-
-                    {/* Opción: Subir Imagen */}
-                    <label className="flex items-center gap-2">
-                        <input
-                            type="radio"
-                            value="upload"
-                        />
-                        Subir Imagen
-                    </label>
-                </div>
-
-
-                {/* Campo imagen con IA */}
-                {selectedOption === "ia" && (
-                    <div className="mt-5">
-                        <label className="mb-2 block text-sm font-semibold">Imagen con IA</label>
-                        <div className="flex items-center gap-10 mb-5">
-                            <input
-                                type="text"
-                                placeholder="Ingresa el prompt"
-                                className="block w-full rounded-md border border-gray-300 py-1 px-2 text-gray-500"
-                                value={stateAvatar.prompt}
-                                onChange={(e) => setStateAvatar(prev => ({ ...prev, prompt: e.target.value }))}
-                            />
-                            <button
-                                type="button"
-                                className="py-1 px-8 bg-gray-600 text-slate-300 border rounded-xl hover:scale-110 duration-300 hover:bg-gray-900 hover:text-white sm:w-80"
-                                disabled={stateAvatar.loading}
-                            >
-                                {stateAvatar.loading ? "Generando..." : "Generar con IA"}
-                            </button>
-                        </div>
-                        {stateAvatar.generatedImage && (
-                            <img src={stateAvatar.generatedImage} alt="Avatar IA" width={100} height={100} />
-                        )}
-                    </div>
-                )}
-
-
-                {/* Campo subir imagen */}
-                {selectedOption === "upload" && (
-                    <div className="mt-5">
-                        <label className="mb-2 block text-sm font-semibold">Subir Imagen</label>
-                        <input
-                            type="file"
-                            accept="image/*"
-                            className="block w-full rounded-md border border-gray-300 py-1 px-2 text-gray-500 mb-5"
-                        />
-                    </div>
-                )}
-
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Campo tipo de mascota */}
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white dark:bg-zinc-900 p-8 rounded-[2rem] shadow-xl border border-zinc-100 dark:border-zinc-800">
+                    
+                    {/* TIPO DE ENTREVISTA */}
                     <div>
-                        <label htmlFor="tipo" className="mb-2 block text-sm font-semibold">Tipo</label>
-                        <select
-                            id="tipo"
-                            className="block w-full rounded-md border border-gray-300 py-2 px-3 text-gray-700"
-                            defaultValue=""
-                        >
-                            <option value="">--- Seleccionar ---</option>
-                            <option value="gato">Gato</option>
-                            <option value="perro">Perro</option>
-                            <option value="otro">Otro</option>
+                        <label className={labelStyle}>Modalidad de Entrevista</label>
+                        <select {...register("type")} className={inputStyle}>
+                            <option value="cv">Basada solo en mi CV</option>
+                            <option value="tech_stack">Enfoque Técnico (Stack)</option>
+                            <option value="soft_skills">Habilidades Blandas</option>
                         </select>
                     </div>
 
-
-                    {/* Campo fecha de nacimiento */}
+                    {/* SUBIDA DE ARCHIVO */}
                     <div>
-                        <label htmlFor="fechaNacimiento" className="mb-2 block text-sm font-semibold">Fecha de nacimiento</label>
-                        <input
-                            id="fechaNacimiento"
-                            type="date"
-                            className="block w-full rounded-md border border-gray-300 py-2 px-3 text-gray-700"
+                        <label className={labelStyle}>Tu CV (PDF Obligatorio)</label>
+                        <div className="relative">
+                            <input 
+                                type="file" 
+                                accept=".pdf" 
+                                {...register("cvFile", { required: true })}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                            />
+                            <div className="flex items-center gap-3 p-3 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                                <UploadCloud className="text-emerald-500" />
+                                <span className="text-sm text-zinc-500">
+                                    {watch("cvFile")?.[0]?.name || "Seleccionar archivo..."}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* CONTEXTO EXTRA */}
+                    <div className="md:col-span-2">
+                        <label className={labelStyle}>
+                            {selectedType === 'tech_stack' ? '¿Qué tecnologías quieres practicar?' : 'Instrucciones adicionales (Opcional)'}
+                        </label>
+                        <textarea 
+                            {...register("contextoExtra")}
+                            placeholder="Ej: React, Node.js, Inglés avanzado..."
+                            className={`${inputStyle} h-28 resize-none`}
                         />
                     </div>
                 </div>
-				
 
-                {/* Campo observación*/}
-                <div>
-                    <label className="mb-2 block text-sm font-semibold">Observación</label>
-                    <textarea
-                        placeholder="Ingresa el síntoma u observación de forma general"
-                        className="block w-full rounded-md border border-gray-300 py-1 px-2 text-gray-500 mb-5"
-                    />
+                <div className="flex justify-center">
+                    <button 
+                        type="submit" 
+                        disabled={isSubmitting}
+                        className="group relative flex items-center gap-3 px-12 py-4 bg-emerald-600 text-white rounded-full font-bold text-lg hover:bg-emerald-700 transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+                    >
+                        {isSubmitting ? (
+                            <Loader2 className="animate-spin" />
+                        ) : (
+                            <Sparkles className="group-hover:rotate-12 transition-transform" />
+                        )}
+                        {isSubmitting ? "Analizando Perfil..." : "Generar Entrevista"}
+                    </button>
                 </div>
-
-            </fieldset>
-
-
-            {/* Botón de registro */}
-            <input
-                type="submit"
-                className="bg-gray-800 w-full p-2 mt-5 text-slate-300 uppercase font-bold rounded-lg 
-                hover:bg-gray-600 cursor-pointer transition-all"
-                value="Registrar"
-            />
-
-        </form>
-
+            </form>
+        </motion.div>
     )
 }

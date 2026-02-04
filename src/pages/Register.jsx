@@ -37,7 +37,7 @@ export const Register = () => {
   }, [vantaEffect]);
 
   const registerUser = async (dataForm) => {
-    const url = `${import.meta.env.VITE_BACKEND_URL}/registro`;
+    const url = `${import.meta.env.VITE_BACKEND_URL}/admin/registro`;
     await fetchDataBackend(url, dataForm, "POST");
   };
 
@@ -108,9 +108,9 @@ export const Register = () => {
               inputMode="tel"
               placeholder="Ingresa tu teléfono"
               className="w-full rounded-xl border border-gray-700 bg-black/30 text-gray-200 px-4 py-2 focus:ring-2 focus:ring-indigo-400 outline-none shadow-lg"
-              {...register("telefono", { required: "El teléfono es obligatorio" })}
+              {...register("celular", { required: "El teléfono es obligatorio" })}
             />
-            {errors.telefono && <p className="text-red-400 text-sm mt-1">{errors.telefono.message}</p>}
+            {errors.celular && <p className="text-red-400 text-sm mt-1">{errors.celular.message}</p>}
           </div>
 
           {/* Dirección */}

@@ -1,0 +1,1 @@
+import '@testing-library/jest-dom'; // Extiende los matchers de Vitest para el DOM

@@ -1,131 +1,115 @@
-export default function Panel() {
+import { useState, useEffect } from 'react';
+import axios from 'axios'; // O usa fetch si prefieres
+import {Zap, Loader2 } from 'lucide-react';
+import {
+  Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement,
+  BarElement, Title, Tooltip, Legend, Filler
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
 
-  const inputCls = "w-full rounded-md border border-gray-300 px-3 py-2 text-gray-700 placeholder-gray-400";
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler);
+
+export default function Panel() {
+  const [interviews, setInterviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const cardStyle = "bg-[#edebe0] dark:bg-black/20 border-2 border-black dark:border-[#3f3f46] rounded-[2.5rem] p-7 shadow-xl hover:border-emerald-500 transition-all duration-300";
+  
+  // 1. Cargar datos reales de tu API
+  useEffect(() => {
+    const getStats = async () => {
+      try {
+        // Asegúrate de enviar el Token si usas middleware de auth
+        const token = localStorage.getItem('token'); 
+        const { data } = await axios.get('http://localhost:3000/api/interview/history', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        // Filtramos solo las completadas para las gráficas
+        setInterviews(data.filter(i => i.isCompleted).reverse()); 
+      } catch (error) {
+        console.error("Error al obtener historial:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    getStats();
+  }, []);
+
+  // 2. Configuración de datos para Chart.js basada en tu backend
+  const lineData = {
+    labels: interviews.map(i => new Date(i.createdAt).toLocaleDateString()),
+    datasets: [{
+      fill: true,
+      label: 'Score de IA',
+      data: interviews.map(i => i.progressPercentage), // Usamos el % que ya calculas
+      borderColor: '#10b981',
+      backgroundColor: 'rgba(16, 185, 129, 0.1)',
+      tension: 0.4,
+    }]
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: { min: 0, max: 100, ticks: { color: '#71717a' }, grid: { color: 'rgba(113, 113, 122, 0.05)' } },
+      x: { ticks: { color: '#71717a' }, grid: { display: false } }
+    },
+    plugins: { legend: { display: false } }
+  };
+
+  // 3. Métricas calculadas en tiempo real
+  const avgPerformance = interviews.length > 0 
+    ? (interviews.reduce((acc, curr) => acc + curr.progressPercentage, 0) / interviews.length).toFixed(0) 
+    : 0;
 
   return (
-
-
-    <div className="min-h-screen bg-gray-100">
-
-
-      <h1 className='font-black text-2xl text-gray-500'>Métricas generales</h1>
-      <hr className='my-4 border-t-2 border-gray-300' />
-
-
-
-      {/* Resultados generales */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
-
-        <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-sm text-gray-500">Clientes</p>
-          <p className="text-3xl font-semibold text-gray-800">120</p>
+    <div className="min-h-screen p-6 space-y-10">
+      
+      {/* Header Dinámico */}
+      <div className="flex justify-between items-center">
+        <h1 className='font-black text-4xl tracking-tighter uppercase italic text-black dark:text-white'>
+          InterviAI <span className="text-emerald-500">Stats</span>
+        </h1>
+        <div className="bg-emerald-500 text-black px-4 py-1 rounded-full font-black text-xs uppercase italic">
+          {interviews.length} Sesiones Realizadas
         </div>
+      </div>
 
-        <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-sm text-gray-500">Mascotas</p>
-          <p className="text-3xl font-semibold text-gray-800">185</p>
+      {/* Grid de Métricas Reales */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className={cardStyle}>
+          <p className="text-[10px] font-black text-emerald-600 uppercase mb-1">Puntaje Promedio</p>
+          <p className="text-4xl font-black">{avgPerformance}%</p>
         </div>
-
-        <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-sm text-gray-500">Citas hoy</p>
-          <p className="text-3xl font-semibold text-gray-800">5</p>
+        <div className={cardStyle}>
+          <p className="text-[10px] font-black text-emerald-600 uppercase mb-1">Última Sesión</p>
+          <p className="text-2xl font-black truncate">{interviews[interviews.length - 1]?.title || 'Sin datos'}</p>
         </div>
-
-        <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-sm text-gray-500">Tratamientos</p>
-          <p className="text-3xl font-semibold text-gray-800">5</p>
+        <div className={cardStyle}>
+          <p className="text-[10px] font-black text-emerald-600 uppercase mb-1">Estado de Entrenamiento</p>
+          <p className="text-2xl font-black">{avgPerformance > 70 ? 'LISTO PARA INTERVIEW' : 'SIGUE PRACTICANDO'}</p>
         </div>
-
       </section>
 
-
-
-      <h1 className='font-black text-2xl text-gray-500'>Automatizaciones con IA</h1>
-      <hr className='my-4 border-t-2 border-gray-300' />
-
-
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-        <div className="bg-white rounded-lg shadow p-4">
-
-          <h2 className="text-xl font-semibold text-gray-700 mb-3">Agendar cita</h2>
-          <hr className="mb-4" />
-
-          {/* Formulario */}
-          <form className="space-y-3">
-
-            <div>
-              <label htmlFor="cliente" className="text-sm text-gray-600">Cliente</label>
-              <input id="cliente" className={inputCls} placeholder="Ingresa el nombre del cliente" />
-            </div>
-
-            <div>
-              <label htmlFor="mascota" className="text-sm text-gray-600">Mascota</label>
-              <input id="mascota" className={inputCls} placeholder="Nombre de la mascota" />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="fecha" className="text-sm text-gray-600">Fecha</label>
-                <input id="fecha" type="date" className={inputCls} />
-              </div>
-              <div>
-                <label htmlFor="hora" className="text-sm text-gray-600">Hora</label>
-                <input id="hora" type="time" className={inputCls} />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="motivo" className="text-sm text-gray-600">Motivo (opcional)</label>
-              <input id="motivo" className={inputCls} placeholder="Vacuna, control, etc." />
-            </div>
-
-            <button type="button" className="w-full bg-gray-800 text-white rounded-md py-2 hover:bg-gray-700">
-              Guardar cita
-            </button>
-
-          </form>
-
+      {/* Gráfico Evolutivo */}
+      <section className={cardStyle}>
+        <div className="flex justify-between items-center mb-6">
+            <h2 className="font-black uppercase italic text-zinc-500 text-sm">Evolución de Rendimiento por Sesión</h2>
+            <Zap size={18} className="text-emerald-500" />
         </div>
-
-
-
-        {/* Listar citas */}
-        <div className="bg-white rounded-lg shadow p-4">
-
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-            <h2 className="text-xl font-semibold text-gray-700">
-              Citas para el día de hoy:{" "}
-              <span className="font-normal">
-                {new Date().toLocaleDateString("es-EC")}
-              </span>
-            </h2>
-
-            <button type="button" className="bg-gray-800 text-white rounded-md py-2 
-              px-4 hover:bg-gray-700 w-full sm:w-auto">Consultar
-            </button>
-          </div>
-
-          <hr className="mb-4" />
-
-          <ul className="divide-y">
-            <li className="py-3 flex justify-between">
-              <div>
-                <p className="font-medium text-gray-800">Hora: 09:30</p>
-                <p className="text-sm text-gray-600">Propietario: Luna</p>
-                <p className="text-sm text-gray-600">Mascota: Luna</p>
-                <p className="text-sm text-gray-600">Motivo: Vacuna</p>
-              </div>
-              <span className="text-xs bg-gray-300 font-bold px-2 py-1 rounded self-center">
-                2025-08-28
-              </span>
-            </li>
-          </ul>
-
+        <div className="h-[300px]">
+          {loading ? (
+            <div className="flex items-center justify-center h-full gap-2 text-emerald-500 font-bold italic">
+              <Loader2 className="animate-spin" /> SINCRONIZANDO DATA...
+            </div>
+          ) : (
+            <Line options={chartOptions} data={lineData} />
+          )}
         </div>
-        
       </section>
 
     </div>
-  )
+  );
 }

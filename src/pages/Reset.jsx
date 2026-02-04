@@ -1,4 +1,3 @@
-import logoDog from '../assets/dog-hand.webp'
 import { useState } from 'react'
 import { useEffect } from 'react'
 import {useFetch} from '../hooks/useFetch';
@@ -37,56 +36,96 @@ const Reset = () => {
     
 
     return (
-        <div className="flex flex-col items-center justify-center h-screen">
+        <div
+            className="
+                flex flex-col items-center justify-center min-h-screen 
+                bg-gradient-to-br from-gray-900 via-gray-800 to-black
+                text-white px-5 py-10 relative overflow-hidden select-none"
+        >
+            <div className="absolute top-0 left-0 w-80 h-80 bg-blue-600/10 blur-3xl rounded-full"></div>
+            <div className="absolute bottom-0 right-0 w-80 h-80 bg-blue-500/10 blur-3xl rounded-full"></div>
 
             <ToastContainer />
-            
-            <h1 className="text-3xl font-semibold mb-2 text-center text-gray-500">
+
+            {/* TÍTULO */}
+            <h1 className="text-3xl md:text-4xl font-bold mb-1 text-center text-gray-200 drop-shadow-lg">
                 Bienvenido nuevamente
             </h1>
-            <small className="text-gray-400 block my-4 text-sm">
-                Pro favor, ingrese los siguientes datos
+
+            <small className="text-gray-400 block my-3 text-sm text-center tracking-wide">
+                Por favor ingresa los siguientes datos para continuar
             </small>
+
+            {/* Imagen */}
             <img
-                className="object-cover h-80 w-80 rounded-full border-4 border-solid border-slate-600"
-                src={logoDog}
-                alt="image description"
+                className="
+                    object-cover h-56 w-56 md:h-64 md:w-64 rounded-full 
+                    border-4 border-gray-700 shadow-[0_0_20px_rgba(0,0,0,0.7)]
+                    hover:scale-105 transition duration-300"
+                src="https://t3.ftcdn.net/jpg/06/33/36/82/360_F_633368225_LwDAmhPhhsEwCLN8JT1cADEne6r848sr.jpg"
+                alt="Logo"
             />
 
+            {/* FORMULARIO */}
             {tokenback && (
+                <form
+                    className="
+                        w-full max-w-sm mt-10 bg-gray-800/40 p-6 rounded-2xl 
+                        border border-gray-700 shadow-xl backdrop-blur-xl
+                        relative"
+                    onSubmit={handleSubmit(changePassword)}
+                >
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600/60 to-purple-700/60 rounded-t-2xl"></div>
 
-                <form className="w-80" onSubmit={handleSubmit(changePassword )}>
+                    {/* NUEVA CONTRASEÑA */}
+                    <label className="block text-gray-300 text-sm font-semibold mb-1">
+                        Nueva contraseña
+                    </label>
 
-                    <div className="mb-1">
+                    <input
+                        type="password"
+                        placeholder="Ingresa tu nueva contraseña"
+                        className="
+                            w-full rounded-lg bg-gray-900/80 text-gray-200
+                            border border-gray-700 px-3 py-2 mt-1
+                            focus:outline-none focus:ring-2 focus:ring-blue-500/60
+                            transition"
+                        {...register("password", { required: "La contraseña es obligatoria" })}
+                    />
+                    {errors.password && (
+                        <p className="text-red-400 text-sm mt-1">{errors.password.message}</p>
+                    )}
 
-                        {/* Campo nueva contraseña */}
-                        <label className="mb-2 block text-sm font-semibold">Nueva contraseña</label>
-                        <input type="password" placeholder="Ingresa tu nueva contraseña"
-                            className="block w-full rounded-md border border-gray-300 py-1 px-1.5 text-gray-500"
-                            {...register("password", { required: "La contraseña es obligatoria" })}
-                        />
-                            {errors.password && <p className="text-red-800">{errors.password.message}</p>}
-                        
-                        
-                        {/* Campo repetir contraseña */}
-                        <label className="mb-2 block text-sm font-semibold">Confirmar contraseña</label>
-                        <input type="password" placeholder="Repite tu contraseña"
-                            className="block w-full rounded-md border border-gray-300 py-1 px-1.5 text-gray-500"
-                            {...register("confirmpassword", { required: "La contraseña es obligatoria" })}
-                        />
-                            {errors.confirmpassword && <p className="text-red-800">{errors.confirmpassword.message}</p>}
+                    {/* CONFIRMAR CONTRASEÑA */}
+                    <label className="block text-gray-300 text-sm font-semibold mt-4 mb-1">
+                        Confirmar contraseña
+                    </label>
 
-                    </div>
+                    <input
+                        type="password"
+                        placeholder="Repite tu contraseña"
+                        className="
+                            w-full rounded-lg bg-gray-900/80 text-gray-200 
+                            border border-gray-700 px-3 py-2 mt-1
+                            focus:outline-none focus:ring-2 focus:ring-blue-500/60
+                            transition"
+                        {...register("confirmpassword", { required: "La contraseña es obligatoria" })}
+                    />
+                    {errors.confirmpassword && (
+                        <p className="text-red-400 text-sm mt-1">{errors.confirmpassword.message}</p>
+                    )}
 
-                    <div className="mb-3">
-                        <button className="bg-gray-600 text-slate-300 border py-2 
-                        w-full rounded-xl mt-5 hover:scale-105 duration-300 hover:bg-gray-900 
-                        hover:text-white">
-                            Enviar
-                        </button>
-
-                    </div>
-                    
+                    {/* BOTÓN */}
+                    <button
+                        className="
+                            bg-gradient-to-r from-blue-600/90 to-blue-800/90 
+                            text-white w-full py-2 mt-6 rounded-xl font-semibold
+                            shadow-lg shadow-blue-900/40
+                            hover:scale-105 hover:shadow-blue-900/60
+                            transition-all duration-300"
+                    >
+                        Enviar
+                    </button>
                 </form>
             )}
         </div>

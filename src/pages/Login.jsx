@@ -2,17 +2,19 @@ import { useState, useEffect, useRef } from "react";
 import { MdVisibility, MdVisibilityOff } from "react-icons/md";
 import { Link, useNavigate } from "react-router";
 import { useFetch } from "../hooks/useFetch";
-import { ToastContainer, toast } from "react-toastify";
+import { ToastContainer} from "react-toastify";
 import { useForm } from "react-hook-form";
 import { motion } from "framer-motion";
 import * as THREE from "three";
 import GLOBE from "vanta/dist/vanta.globe.min";
+import storeAuth from "../context/storeAuth";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const { register, handleSubmit, formState: { errors } } = useForm();
   const fetchDataBackend = useFetch();
+  const { setToken, setRol } = storeAuth();
 
   const vantaRef = useRef(null);
   const [vantaEffect, setVantaEffect] = useState(null);
@@ -37,13 +39,30 @@ const Login = () => {
     };
   }, [vantaEffect]);
 
-  const loginUser = async(dataForm) => {
-        const url = `${import.meta.env.VITE_BACKEND_URL}/veterinario/login`
-        const response = await fetchDataBackend(url, dataForm,'POST')
-        if(response){
-            navigate('/dashboard')
-        }
+  // 1. Añade esta función para manejar la redirección
+  const handleGoogleLogin = () => {
+    // Redirige directamente a la ruta de tu backend que inicia Passport
+    window.location.href = `${import.meta.env.VITE_BACKEND_URL}/auth/google`;
+  };
+
+  const loginUser = async (dataForm) => {
+    try {
+      const url = dataForm.password.includes("VET")
+        ? `${import.meta.env.VITE_BACKEND_URL}/user/login`
+        : `${import.meta.env.VITE_BACKEND_URL}/admin/login`;
+      
+      const response = await fetchDataBackend(url, dataForm, 'POST');
+      
+      if (response) {
+        setToken(response.token);
+        setRol(response.rol);
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      // Al capturar el error aquí, Vitest ya no lanzará "Unhandled Rejection"
+      console.error("Error en el login:", error.message);
     }
+  };
 
   return (
     <div
@@ -123,8 +142,12 @@ const Login = () => {
         </div>
 
         {/* GOOGLE */}
-        <button className="w-full mt-6 flex items-center justify-center border border-gray-700 py-2 rounded-xl text-sm bg-black/20 hover:bg-black/30 text-gray-300 transition shadow-lg">
-          <img className="w-5 mr-2" src="https://cdn-icons-png.flaticon.com/512/281/281764.png" />
+        <button 
+          type="button" 
+          onClick={handleGoogleLogin}
+          className="w-full mt-6 flex items-center justify-center border border-gray-700 py-2 rounded-xl text-sm bg-black/20 hover:bg-black/30 text-gray-300 transition shadow-lg"
+        >
+          <img className="w-5 mr-2" src="https://cdn-icons-png.flaticon.com/512/281/281764.png" alt="Google icon" />
           Continuar con Google
         </button>
 
