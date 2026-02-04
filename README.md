@@ -6,6 +6,8 @@
 ![Vitest](https://img.shields.io/badge/Vitest-6E9F18?style=for-the-badge&logo=vitest&logoColor=white)
 
 **IntervIA** es el componente Frontend de un sistema web innovador diseñado para la **Escuela Politécnica Nacional (EPN - ESFOT)**. Su objetivo es cerrar la brecha entre la formación técnica y las habilidades comunicativas de los estudiantes de Desarrollo de Software mediante simulaciones de entrevistas potenciadas por Inteligencia Artificial.
+<img width="1910" height="6338" alt="screencapture-intervia-esfot-netlify-app-2026-02-04-14_04_15" src="https://github.com/user-attachments/assets/0a8d8b08-ca2c-4231-84cf-bf99804d21fb" />
+
 
 ## 🚀 Características Principales
 
@@ -39,3 +41,4 @@ src/
 ├── pages/           # Vistas principales de la aplicación
 ├── services/        # Configuración de API y peticiones asíncronas
 └── tests/           # Pruebas unitarias y mocks
+
