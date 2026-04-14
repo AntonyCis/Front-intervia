@@ -1,342 +1,310 @@
-import { useState, useEffect, useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
-import * as THREE from "three";
+import { useState } from "react";
 
 export default function Home() {
-  const [scrollY, setScrollY] = useState(0);
-  const [handStatus, setHandStatus] = useState("Cargando IA...");
-  const containerRef = useRef(null);
-  const videoRef = useRef(null);
-  const targetsRef = useRef(null);
-  const pointsRef = useRef(null);
-
-  const { scrollYProgress } = useScroll();
-  const opacity3D = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
-  
-  const lineLength = 1800;
-  const lineDraw = useTransform(
-    scrollYProgress,
-    [0.25, 0.85],
-    [lineLength, 0]
-  );
-
-  useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener("scroll", handleScroll);
-
-    const loadExternalScript = (src) => {
-      return new Promise((resolve) => {
-        const script = document.createElement("script");
-        script.src = src;
-        script.crossOrigin = "anonymous";
-        script.onload = () => resolve();
-        document.head.appendChild(script);
-      });
-    };
-
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    if (containerRef.current) containerRef.current.appendChild(renderer.domElement);
-
-    const particleCount = 20000;
-    const geo = new THREE.BufferGeometry();
-    const pos = new Float32Array(particleCount * 3);
-    targetsRef.current = new Float32Array(particleCount * 3);
-
-    for (let i = 0; i < particleCount * 3; i++) {
-      pos[i] = (Math.random() - 0.5) * 12;
-      targetsRef.current[i] = pos[i];
-    }
-
-    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    const mat = new THREE.PointsMaterial({
-      size: 0.012, color: 0x00f2ff, transparent: true, blending: THREE.AdditiveBlending,
-    });
-
-    const points = new THREE.Points(geo, mat);
-    pointsRef.current = points;
-    scene.add(points);
-    camera.position.z = 6;
-
-    const initAll = async () => {
-      if (!window.Hands || !window.Camera) {
-        await loadExternalScript("https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js");
-        await loadExternalScript("https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js");
-      }
-      if (window.Hands && window.Camera) {
-        const hands = new window.Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5 });
-        hands.onResults((results) => {
-          if (results.multiHandLandmarks && results.multiHandLandmarks[0]) {
-            setHandStatus("SENSOR ACTIVO");
-            const h = results.multiHandLandmarks[0];
-            const dist = Math.hypot(h[4].x - h[8].x, h[4].y - h[8].y);
-            points.scale.set(0.6 + dist * 3.5, 0.6 + dist * 3.5, 0.6 + dist * 3.5);
-            points.position.x = (h[9].x - 0.5) * -12;
-            points.position.y = (h[9].y - 0.5) * -10;
-          } else { setHandStatus("BUSCANDO MANO..."); }
-        });
-        const cam = new window.Camera(videoRef.current, {
-          onFrame: async () => { await hands.send({ image: videoRef.current }); },
-          width: 640, height: 480,
-        });
-        cam.start();
-      }
-    };
-    initAll();
-    const animate = () => {
-      requestAnimationFrame(animate);
-      const pArr = points.geometry.attributes.position.array;
-      for (let i = 0; i < particleCount * 3; i++) { pArr[i] += (targetsRef.current[i] - pArr[i]) * 0.08; }
-      points.geometry.attributes.position.needsUpdate = true;
-      points.rotation.y += 0.001;
-      renderer.render(scene, camera);
-    };
-    animate();
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      if (containerRef.current) containerRef.current.innerHTML = "";
-    };
-  }, []);
-
-  const morph = (shape) => {
-    const targets = targetsRef.current;
-    for (let i = 0; i < 20000; i++) {
-      const i3 = i * 3;
-      let x, y, z;
-      if (shape === "ia") {
-        const r = 2.5; const t = Math.random() * Math.PI * 2; const p = Math.acos(2 * Math.random() - 1);
-        x = r * Math.sin(p) * Math.cos(t); y = r * Math.sin(p) * Math.sin(t); z = r * Math.cos(p);
-      } else if (shape === "laptop") {
-        if (i < 12000) { x = (Math.random() - 0.5) * 4.5; y = Math.random() * 3; z = -0.1; }
-        else { x = (Math.random() - 0.5) * 4.5; y = 0; z = Math.random() * 2.5; }
-      } else if (shape === "saturno") {
-        if (i < 8000) {
-          const r = 1.6; const t = Math.random() * Math.PI * 2; const p = Math.acos(2 * Math.random() - 1);
-          x = r * Math.sin(p) * Math.cos(t); y = r * Math.sin(p) * Math.sin(t); z = r * Math.cos(p);
-        } else {
-          const r = 3 + Math.random() * 0.8; const a = Math.random() * Math.PI * 2;
-          x = Math.cos(a) * r; y = (Math.random() - 0.5) * 0.15; z = Math.sin(a) * r;
-        }
-      } else { x = (Math.random() - 0.5) * 6 * Math.sin(i); y = (Math.random() - 0.5) * 3 * Math.cos(i); z = (Math.random() - 0.5) * 4; }
-      targets[i3] = x; targets[i3 + 1] = y; targets[i3 + 2] = z;
-    }
-  };
-
-  const steps = [
-    { num: "01", title: "Generación", desc: "La IA crea preguntas de entrevistas según el perfil y el puesto del usuario." },
-    { num: "02", title: "Registro", desc: "El usuario responde las preguntas simulando una entrevista real." },
-    { num: "03", title: "Evaluación", desc: "El sistema analiza las respuestas y mide su claridad y relevancia." },
-    { num: "04", title: "Feedback", desc: "La plataforma entrega recomendaciones para mejorar el desempeño." }
-  ];
-
-  const servicios = [
-    { title: "Simulación Realista", desc: "Entrevistas IA que imitan procesos reales." },
-    { title: "Análisis Inteligente", desc: "Evaluación automática de lenguaje y coherencia." },
-    { title: "Feedback Personalizado", desc: "Recomendaciones claras para mejorar." },
-    { title: "Entrenamiento Continuo", desc: "Práctica ilimitada con seguimiento." },
-  ];
-
-  const planesLanding = [
-    { nombre: "Basic", precio: 5, color: "from-emerald-500/10", border: "border-emerald-500/20", text: "text-emerald-400", features: ["5 Entrevistas IA", "Feedback Básico"] },
-    { nombre: "Pro", precio: 15, color: "from-cyan-500/10", border: "border-cyan-500/50", text: "text-cyan-400", popular: true, features: ["20 Entrevistas IA", "Feedback Detallado", "Descarga PDF"] },
-    { nombre: "Unlimited", precio: 30, color: "from-amber-500/10", border: "border-amber-500/20", text: "text-amber-400", features: ["Ilimitado", "IA Premium", "Coach IA"] }
-  ];
-
-  const testimonios = [
-    { text: "Me ayudó a mejorar la forma en que respondo en una entrevista.", user: "Andrea González", date: "03/01/2026", avatar: "https://i.pravatar.cc/100?u=1" },
-    { text: "La simulación es clara y fácil de usar, muy útil para practicar.", user: "Daniel Castillo", date: "02/01/2026", avatar: "https://i.pravatar.cc/100?u=2" },
-    { text: "Recibí recomendaciones que realmente me sirvieron para corregir errores.", user: "Paola Ramírez", date: "01/01/2026", avatar: "https://i.pravatar.cc/100?u=3" }
-  ];
-
   return (
-    <div className="relative min-h-screen bg-black text-white overflow-x-hidden">
-      <header className="fixed top-0 left-0 w-full z-50 backdrop-blur-lg bg-black/50 border-b border-white/10 flex justify-between items-center px-10 py-4 font-mono">
-        <h1 className="text-lg font-black uppercase tracking-widest">InterviAI</h1>
-        <nav className="flex gap-6">
-          <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="nav-btn">Inicio</button>
-          <button onClick={() => document.getElementById("mision")?.scrollIntoView({ behavior: "smooth" })} className="nav-btn">Misión</button>
-          <button onClick={() => document.getElementById("servicios")?.scrollIntoView({ behavior: "smooth" })} className="nav-btn">Servicios</button>
-          <button onClick={() => document.getElementById("como-funciona")?.scrollIntoView({ behavior: "smooth" })} className="nav-btn">Cómo Funciona</button>
-          <button onClick={() => document.getElementById("planes")?.scrollIntoView({ behavior: "smooth" })} className="nav-btn text-cyan-400 border-cyan-500/30">Planes</button>
-          <button onClick={() => document.getElementById("testimonios")?.scrollIntoView({ behavior: "smooth" })} className="nav-btn">Testimonios</button>
-          <button onClick={() => window.location.href="/login"} className="nav-btn">Login</button>
-        </nav>
-      </header>
-
-      <video ref={videoRef} className="hidden" />
-      <motion.div ref={containerRef} style={{ opacity: opacity3D }} className="fixed inset-0 z-0 pointer-events-none" />
-
-      <div className="relative z-10 px-10 pt-50 max-w-6xl mx-auto">
-        {/* HERO */}
-        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1 }}>
-          <h1 className="text-6xl md:text-8xl font-black italic uppercase leading-none tracking-tighter mb-4">
-            Simulación de <br /> <span className="text-cyan-400">Entrevistas Laborales</span>
-          </h1>
-          <p className="font-mono text-xs tracking-[0.3em] opacity-40 uppercase mb-10">Análisis Biométrico y Gestual mediante Visión Artificial</p>
-          <div className="flex flex-wrap gap-3 p-4 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl w-fit mb-20 font-mono">
-            <button onClick={() => morph("ia")} className="nav-btn">IA CORE</button>
-            <button onClick={() => morph("laptop")} className="nav-btn">WORKSTATION</button>
-            <button onClick={() => morph("saturno")} className="nav-btn">GLOBAL NETWORK</button>
-            <input type="color" onChange={(e) => pointsRef.current.material.color.set(e.target.value)} className="w-8 h-8 cursor-pointer bg-transparent border-none" />
-            <span className="text-[10px] text-cyan-400 self-center ml-4 tracking-widest uppercase">{handStatus}</span>
+    <div className="bg-background text-on-background font-body selection:bg-secondary-container selection:text-on-secondary-container">
+      {/* TopNavBar */}
+      <nav className="fixed top-0 w-full z-50 bg-surface/80 dark:bg-slate-950/80 backdrop-blur-xl shadow-sm dark:shadow-none">
+        <div className="flex justify-between items-center px-8 py-4 max-w-7xl mx-auto">
+          <div className="text-2xl font-bold tracking-tighter text-slate-900 dark:text-white font-headline">
+            InterviAI
           </div>
-        </motion.div>
-
-        {/* MISION / VISION */}
-        <div className="bg-white rounded-[40px] p-12 flex flex-col gap-16 mt-65 relative z-20 shadow-2xl text-black">
-          <div id="mision" className="flex flex-col md:flex-row items-center gap-10">
-            <motion.div className="md:w-1/2" style={{ y: scrollY * 0.05 }} whileHover={{ scale: 1.05 }}>
-              <img src="https://ehlatam.com/wp-content/uploads/2025/07/entrevistas-hibridas-IA.jpg" className="w-full rounded-3xl shadow-xl" />
-            </motion.div>
-            <div className="md:w-1/2">
-              <h2 className="text-4xl font-black italic uppercase mb-2">Nuestra Misión</h2>
-              <p className="text-black/70 text-lg leading-relaxed">Brindar una plataforma inteligente de simulación de entrevistas laborales que, mediante inteligencia artificial y análisis del comportamiento, ayude a las personas a mejorar sus habilidades de comunicación, seguridad y desempeño profesional.</p>
-            </div>
+          <div className="hidden md:flex items-center space-gap-8 gap-x-8">
+            <a className="text-secondary dark:text-cyan-400 border-b-2 border-secondary font-bold pb-1 font-headline tracking-tight" href="#mision">Misión</a>
+            <a className="text-slate-600 dark:text-slate-400 font-medium hover:text-secondary transition-colors duration-200 font-headline tracking-tight" href="#servicios">Servicios</a>
+            <a className="text-slate-600 dark:text-slate-400 font-medium hover:text-secondary transition-colors duration-200 font-headline tracking-tight" href="#como-funciona">Cómo funciona</a>
+            <a className="text-slate-600 dark:text-slate-400 font-medium hover:text-secondary transition-colors duration-200 font-headline tracking-tight" href="#planes">Planes</a>
+            <a className="text-slate-600 dark:text-slate-400 font-medium hover:text-secondary transition-colors duration-200 font-headline tracking-tight" href="#testimonios">Testimonios</a>
           </div>
-          <div id="vision" className="flex flex-col md:flex-row-reverse items-center gap-10">
-            <motion.div className="md:w-1/2" style={{ y: scrollY * 0.05 }} whileHover={{ scale: 1.05 }}>
-              <img src="https://comunicagenia.com/wp-content/uploads/2025/04/inteligencia-artificial-ayudarme-entrevista-trabajo.jpg" className="w-full rounded-3xl shadow-xl" />
-            </motion.div>
-            <div className="md:w-1/2 text-right">
-              <h2 className="text-4xl font-black italic uppercase mb-4">Nuestra Visión</h2>
-              <p className="text-black/70 text-lg leading-relaxed">Ser una plataforma innovadora y confiable que transforme la preparación de entrevistas laborales, ofreciendo entrenamiento personalizado y accesible apoyado en tecnología de inteligencia artificial.</p>
-            </div>
+          <div className="flex items-center gap-4">
+            <button onClick={() => window.location.href = "/login"} className="hidden lg:block text-slate-600 font-medium px-4 py-2 hover:text-secondary transition-all">Iniciar Sesión</button>
+            <button onClick={() => window.location.href = "/register"} className="bg-primary-container text-white px-6 py-2 rounded-md font-bold transition-all active:opacity-80 active:scale-95">Empezar Gratis</button>
           </div>
         </div>
+      </nav>
 
-        {/* SERVICIOS */}
-        <section id="servicios" className="relative mt-30 mb-40">
-          <h2 className="text-4xl font-black italic uppercase text-center mb-24">Servicios</h2>
-          <svg viewBox="0 0 600 1400" className="absolute left-1/2 top-20 -translate-x-1/2 h-full" fill="none">
-            <motion.path d="M300 0 C 520 240, 80 480, 300 720 C 520 960, 80 1200, 300 1440" stroke="rgba(0,242,255,0.6)" strokeWidth="3" fill="none" strokeDasharray={lineLength} style={{ strokeDashoffset: lineDraw }} />
-          </svg>
-          <div className="relative flex flex-col gap-24 -mt-32">
-            {servicios.map((s, i) => (
-              <motion.div key={i} initial={{ opacity: 0, y: 120 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className={`flex ${i % 2 === 0 ? "justify-end" : "justify-start"}`}>
-                <div className="w-[320px] bg-white/90 text-black rounded-3xl p-6 shadow-2xl">
-                  <div className="text-cyan-500 font-black text-4xl mb-2">0{i + 1}</div>
-                  <h3 className="text-xl font-bold mb-2 uppercase">{s.title}</h3>
-                  <p className="text-black/70 text-sm">{s.desc}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </section>
-
-        {/* CÓMO FUNCIONA */}
-        <section id="como-funciona" className="py-16 mt-4 relative z-20 font-sans">
-            <div className="text-center mb-12">
-               <h2 className="text-3xl md:text-4xl font-black italic uppercase tracking-tight text-white">
-                 Cómo Funciona
-               </h2>
-               <div className="w-16 h-1 bg-cyan-500 mx-auto mt-3 rounded-full"></div>
+      <main className="pt-24">
+        {/* Hero Section */}
+        <section className="relative px-8 py-20 max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+          <div className="z-10">
+            <span className="inline-block px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container text-[10px] font-bold uppercase tracking-widest mb-6">v2.4 Technical Simulation Engine</span>
+            <h1 className="text-6xl md:text-7xl font-headline font-bold text-on-primary-fixed tracking-tighter leading-none mb-6">
+              Domina el Arte de la Entrevista Técnica
+            </h1>
+            <p className="text-xl text-on-surface-variant max-w-lg mb-10 leading-relaxed">
+              Simulaciones de alta fidelidad con arquitectos senior y feedback impulsado por IA para transformar tu carrera en ingeniería.
+            </p>
+            <div className="flex flex-wrap gap-4">
+              <button className="bg-primary-container hover:bg-on-primary-fixed-variant text-white px-8 py-4 rounded-md font-bold flex items-center gap-2 transition-all shadow-lg">
+                Reservar Simulación <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>terminal</span>
+              </button>
+              <button className="border-2 border-outline-variant hover:border-secondary text-on-surface font-bold px-8 py-4 rounded-md transition-all">
+                Ver Demo
+              </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-               {steps.map((step, idx) => (
-                 <motion.div key={idx} whileHover={{ y: -8, scale: 1.02 }} className="relative p-8 rounded-[35px] bg-white/[0.05] border border-white/20 backdrop-blur-md flex flex-col items-center text-center group transition-all hover:border-cyan-500/50">
-                   <div className="w-12 h-12 rounded-full border-2 border-cyan-500 flex items-center justify-center text-cyan-400 font-black text-lg mb-6 group-hover:bg-cyan-500 group-hover:text-black transition-all">
-                     {step.num}
-                   </div>
-                   <h3 className="text-xl font-black uppercase mb-4 tracking-tight text-white">{step.title}</h3>
-                   <p className="text-white/80 text-base leading-relaxed font-medium">{step.desc}</p>
-                 </motion.div>
-               ))}
-            </div>
-        </section>
-
-        {/* SECCIÓN PLANES - NUEVA INTEGRACIÓN */}
-        <section id="planes" className="py-24 relative z-20">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-black italic uppercase tracking-tight text-white">Planes</h2>
-            <div className="w-16 h-1 bg-cyan-500 mx-auto mt-3 rounded-full"></div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {planesLanding.map((plan, idx) => (
-              <motion.div key={idx} whileHover={{ y: -10 }} className={`relative p-8 rounded-[40px] bg-gradient-to-b ${plan.color} to-transparent border-2 ${plan.border} backdrop-blur-md flex flex-col overflow-hidden group`}>
-                {plan.popular && <span className="absolute -top-1 right-[-30px] rotate-45 bg-cyan-500 text-black font-black text-[10px] py-4 w-[120px] text-center tracking-widest uppercase shadow-xl">Best</span>}
-                <h3 className="text-2xl font-black uppercase mb-2 tracking-tighter">{plan.nombre}</h3>
-                <div className="flex items-baseline gap-1 mb-8">
-                  <span className={`text-5xl font-black ${plan.text}`}>${plan.precio}</span>
-                  <span className="text-white/40 text-[10px] font-bold uppercase tracking-widest">/ Único</span>
+          <div className="relative">
+            <div className="absolute -top-10 -right-10 w-64 h-64 bg-secondary/10 rounded-full blur-3xl"></div>
+            <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 shadow-2xl overflow-hidden relative">
+              {/* Editor UI Mockup */}
+              <div className="bg-primary-container px-4 py-2 flex items-center justify-between">
+                <div className="flex gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-error"></div>
+                  <div className="w-2.5 h-2.5 rounded-full bg-secondary-fixed"></div>
+                  <div className="w-2.5 h-2.5 rounded-full bg-tertiary-fixed-dim"></div>
                 </div>
-                <ul className="space-y-4 mb-10 flex-1">
-                  {plan.features.map((f, i) => (
-                    <li key={i} className="flex items-center gap-3 text-sm font-bold text-white/80">
-                      <div className={`w-1.5 h-1.5 rounded-full ${plan.text.replace('text', 'bg')}`} /> {f}
-                    </li>
-                  ))}
-                </ul>
-                <button onClick={() => window.location.href="/login"} className={`w-full py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] transition-all ${plan.popular ? 'bg-cyan-500 text-black hover:bg-white shadow-[0_0_20px_rgba(6,182,212,0.3)]' : 'bg-white/10 text-white hover:bg-white hover:text-black border border-white/20'}`}>
-                  Seleccionar
-                </button>
-              </motion.div>
-            ))}
+                <div className="text-[10px] font-label text-on-primary-container tracking-widest uppercase">system_design_challenge.py</div>
+                <div className="w-4"></div>
+              </div>
+              <div className="p-6 font-mono text-sm space-y-2 bg-primary-container text-on-primary-fixed-variant/80">
+                <div className="flex gap-4 syntax-line px-2 py-1 transition-all"><span className="text-secondary-fixed-dim">01</span><span className="text-white">class LoadBalancer:</span></div>
+                <div className="flex gap-4 syntax-line px-2 py-1"><span className="text-secondary-fixed-dim">02</span><span className="text-white">&nbsp;&nbsp;def __init__(self, strategy):</span></div>
+                <div className="flex gap-4 syntax-line px-2 py-1"><span className="text-secondary-fixed-dim">03</span><span className="text-white">&nbsp;&nbsp;&nbsp;&nbsp;self.nodes = []</span></div>
+                <div className="flex gap-4 syntax-line px-2 py-1 bg-secondary/20 border-l-2 border-secondary"><span className="text-secondary-fixed-dim">04</span><span className="text-secondary-fixed"># TODO: Implement Consistent Hashing</span></div>
+                <div className="flex gap-4 syntax-line px-2 py-1"><span className="text-secondary-fixed-dim">05</span><span className="text-white">&nbsp;&nbsp;&nbsp;&nbsp;pass</span></div>
+              </div>
+              {/* Feedback Overlay */}
+              <div className="absolute bottom-6 right-6 glass-panel p-4 rounded-xl border border-secondary/30 max-w-[240px] shadow-xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="material-symbols-outlined text-secondary text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>insights</span>
+                  <span className="text-[10px] font-bold uppercase tracking-tighter text-on-surface">IA Feedback</span>
+                </div>
+                <p className="text-[11px] text-on-surface-variant leading-tight">Tu explicación sobre el Sharding fue excelente, pero considera el "Single Point of Failure" en tu diagrama.</p>
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* TESTIMONIOS */}
-        <section id="testimonios" className="mt-10 mb-32 relative z-20"> 
-          <h2 className="text-3xl md:text-4xl font-black italic uppercase text-center mb-12 text-white">Testimonios</h2>
-          <div className="flex flex-col gap-8 max-w-4xl mx-auto">
-            {testimonios.map((t, idx) => (
-              <motion.div key={idx} initial={{ opacity: 0, x: idx % 2 === 0 ? -50 : 50 }} whileInView={{ opacity: 1, x: 0 }} className={`flex items-start gap-4 ${idx % 2 === 0 ? "flex-row" : "flex-row-reverse"}`}>
-                <img src={t.avatar} className="w-14 h-14 rounded-full border-2 border-cyan-400 p-1" alt="user" />
-                <div className={`p-6 rounded-[25px] bg-white/5 border border-white/10 max-w-md ${idx % 2 === 0 ? "rounded-tl-none" : "rounded-tr-none"}`}>
-                  <p className="text-lg italic mb-4 opacity-90 leading-relaxed font-sans">"{t.text}"</p>
-                  <div className="flex items-center justify-between text-[10px] font-mono tracking-widest text-cyan-400 uppercase">
-                    <span>{t.user}</span>
-                    <span className="opacity-40">{t.date}</span>
+        {/* Misión y Visión Section */}
+        <section className="bg-surface-container-low py-32 px-8" id="mision">
+          <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-24 items-start">
+            <div className="space-y-6">
+              <h2 className="text-4xl font-headline font-bold tracking-tight text-on-primary-fixed">Nuestra Misión</h2>
+              <p className="text-lg leading-relaxed text-on-surface-variant">
+                Empoderar a la próxima generación de ingenieros senior mediante la democratización del conocimiento táctico. Creemos que la preparación técnica no debe ser un secreto a voces, sino un camino estructurado de crecimiento continuo.
+              </p>
+              <div className="h-1 w-20 bg-secondary"></div>
+            </div>
+            <div className="space-y-6">
+              <h2 className="text-4xl font-headline font-bold tracking-tight text-on-primary-fixed">Nuestra Visión</h2>
+              <p className="text-lg leading-relaxed text-on-surface-variant">
+                Un mundo donde los procesos de contratación técnica sean justos, transparentes y centrados en el talento real. Visualizamos InterviAI como el estándar de facto para la validación de habilidades en la industria tech global.
+              </p>
+              <div className="h-1 w-20 bg-secondary"></div>
+            </div>
+          </div>
+        </section>
+
+        {/* Servicios Section */}
+        <section className="py-32 px-8 max-w-7xl mx-auto" id="servicios">
+          <div className="text-center mb-20">
+            <h2 className="text-5xl font-headline font-bold text-on-primary-fixed mb-4">Ingeniería del Éxito</h2>
+            <p className="text-on-surface-variant text-lg">Módulos especializados diseñados por entrevistadores de FAANG.</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8">
+            {/* Card 1 */}
+            <div className="group bg-surface-container-lowest p-8 rounded-xl border border-transparent hover:border-secondary/20 transition-all shadow-sm hover:shadow-xl">
+              <div className="w-12 h-12 bg-surface-container-high rounded-lg flex items-center justify-center mb-8 group-hover:bg-secondary-container transition-colors">
+                <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>code</span>
+              </div>
+              <h3 className="text-2xl font-headline font-bold mb-4">Simulaciones de Código</h3>
+              <p className="text-on-surface-variant mb-6 text-sm leading-relaxed">Algoritmos, estructuras de datos y optimización en tiempo real con feedback de complejidad Big O.</p>
+              <ul className="text-[12px] space-y-2 text-on-surface-variant font-label uppercase tracking-widest">
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-secondary"></span> Python / Go / Java</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-secondary"></span> Live Coding Sessions</li>
+              </ul>
+            </div>
+            {/* Card 2 */}
+            <div className="group bg-surface-container-lowest p-8 rounded-xl border border-transparent hover:border-secondary/20 transition-all shadow-sm hover:shadow-xl">
+              <div className="w-12 h-12 bg-surface-container-high rounded-lg flex items-center justify-center mb-8 group-hover:bg-secondary-container transition-colors">
+                <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>hub</span>
+              </div>
+              <h3 className="text-2xl font-headline font-bold mb-4">Diseño de Sistemas</h3>
+              <p className="text-on-surface-variant mb-6 text-sm leading-relaxed">Arquitecturas distribuidas, escalabilidad, latencia y disponibilidad para niveles Senior y Staff.</p>
+              <ul className="text-[12px] space-y-2 text-on-surface-variant font-label uppercase tracking-widest">
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-secondary"></span> Microservices Arch</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-secondary"></span> Whiteboard Strategy</li>
+              </ul>
+            </div>
+            {/* Card 3 */}
+            <div className="group bg-surface-container-lowest p-8 rounded-xl border border-transparent hover:border-secondary/20 transition-all shadow-sm hover:shadow-xl">
+              <div className="w-12 h-12 bg-surface-container-high rounded-lg flex items-center justify-center mb-8 group-hover:bg-secondary-container transition-colors">
+                <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
+              </div>
+              <h3 className="text-2xl font-headline font-bold mb-4">Feedback Conductual</h3>
+              <p className="text-on-surface-variant mb-6 text-sm leading-relaxed">Método STAR, liderazgo y resolución de conflictos analizados por nuestra IA de lenguaje natural.</p>
+              <ul className="text-[12px] space-y-2 text-on-surface-variant font-label uppercase tracking-widest">
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-secondary"></span> Sentiment Analysis</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-secondary"></span> Soft Skills Score</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* Cómo funciona Section */}
+        <section className="bg-primary-container text-white py-32 px-8 overflow-hidden" id="como-funciona">
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-20">
+              <h2 className="text-5xl font-headline font-bold mb-4">El Pipeline</h2>
+              <p className="text-on-primary-container text-lg">Tu proceso de CI/CD para el éxito profesional.</p>
+            </div>
+            <div className="grid md:grid-cols-4 gap-12 relative">
+              {/* Step 1 */}
+              <div className="relative group">
+                <div className="text-[120px] font-headline font-bold text-on-primary-fixed-variant/20 absolute -top-16 -left-4 leading-none select-none">01</div>
+                <div className="relative pt-12">
+                  <h4 className="text-xl font-bold mb-4 text-secondary-fixed">Elige tu reto</h4>
+                  <p className="text-on-primary-container text-sm leading-relaxed">Selecciona entre más de 500 escenarios reales basados en empresas como Netflix, Google y Uber.</p>
+                </div>
+              </div>
+              {/* Step 2 */}
+              <div className="relative group">
+                <div className="text-[120px] font-headline font-bold text-on-primary-fixed-variant/20 absolute -top-16 -left-4 leading-none select-none">02</div>
+                <div className="relative pt-12">
+                  <h4 className="text-xl font-bold mb-4 text-secondary-fixed">Entrena en vivo</h4>
+                  <p className="text-on-primary-container text-sm leading-relaxed">Codifica o diseña en nuestro entorno IDE propietario con integración de video-conferencia.</p>
+                </div>
+              </div>
+              {/* Step 3 */}
+              <div className="relative group">
+                <div className="text-[120px] font-headline font-bold text-on-primary-fixed-variant/20 absolute -top-16 -left-4 leading-none select-none">03</div>
+                <div className="relative pt-12">
+                  <h4 className="text-xl font-bold mb-4 text-secondary-fixed">Recibe feedback</h4>
+                  <p className="text-on-primary-container text-sm leading-relaxed">Análisis granular de cada decisión técnica y sugerencias automáticas de mejora.</p>
+                </div>
+              </div>
+              {/* Step 4 */}
+              <div className="relative group">
+                <div className="text-[120px] font-headline font-bold text-on-primary-fixed-variant/20 absolute -top-16 -left-4 leading-none select-none">04</div>
+                <div className="relative pt-12">
+                  <h4 className="text-xl font-bold mb-4 text-secondary-fixed">Mejora tu ranking</h4>
+                  <p className="text-on-primary-container text-sm leading-relaxed">Visualiza tu progreso comparado con la media de la industria y obtén insignias verificables.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Planes Section */}
+        <section className="py-32 px-8 max-w-7xl mx-auto" id="planes">
+          <div className="text-center mb-20">
+            <h2 className="text-5xl font-headline font-bold text-on-primary-fixed mb-4">Planes</h2>
+            <p className="text-on-surface-variant text-lg">Sin costes ocultos. Solo excelencia técnica.</p>
+          </div>
+          <div className="grid lg:grid-cols-3 gap-8 items-end">
+            {/* Básico */}
+            <div className="bg-surface-container-low p-10 rounded-xl space-y-8">
+              <div>
+                <h4 className="text-xl font-bold mb-2">Básico</h4>
+                <div className="text-4xl font-headline font-bold">Gratis</div>
+                <p className="text-xs text-on-surface-variant uppercase tracking-widest mt-2">Para estudiantes</p>
+              </div>
+              <ul className="space-y-4 text-sm text-on-surface-variant">
+                <li className="flex items-center gap-2"><span className="material-symbols-outlined text-secondary text-lg">check_circle</span> 5 Simulaciones / mes</li>
+                <li className="flex items-center gap-2"><span className="material-symbols-outlined text-secondary text-lg">check_circle</span> Acceso a comunidad Discord</li>
+                <li className="flex items-center gap-2"><span className="material-symbols-outlined text-secondary text-lg">check_circle</span> Roadmap básico</li>
+              </ul>
+              <button onClick={() => window.location.href = "/login"} className="w-full py-4 border border-outline-variant font-bold rounded-md hover:bg-surface-container-high transition-all">Empezar Ahora</button>
+            </div>
+            {/* Pro */}
+            <div className="bg-primary-container text-white p-10 rounded-xl space-y-8 relative scale-105 shadow-2xl">
+              <div className="absolute top-0 right-10 -translate-y-1/2 bg-secondary text-white px-4 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase">Más Popular</div>
+              <div>
+                <h4 className="text-xl font-bold mb-2">Pro</h4>
+                <div className="text-4xl font-headline font-bold">$49<span className="text-lg font-normal text-on-primary-container">/mes</span></div>
+                <p className="text-xs text-secondary-fixed uppercase tracking-widest mt-2">Para profesionales</p>
+              </div>
+              <ul className="space-y-4 text-sm text-on-primary-container">
+                <li className="flex items-center gap-2 text-white"><span className="material-symbols-outlined text-secondary-fixed text-lg">check_circle</span> Simulaciones Ilimitadas</li>
+                <li className="flex items-center gap-2 text-white"><span className="material-symbols-outlined text-secondary-fixed text-lg">check_circle</span> Feedback detallado por IA</li>
+                <li className="flex items-center gap-2 text-white"><span className="material-symbols-outlined text-secondary-fixed text-lg">check_circle</span> Dashboard de rendimiento</li>
+                <li className="flex items-center gap-2 text-white"><span className="material-symbols-outlined text-secondary-fixed text-lg">check_circle</span> Prioridad en soporte</li>
+              </ul>
+              <button onClick={() => window.location.href = "/login"} className="w-full py-4 bg-secondary-fixed text-on-secondary-fixed font-bold rounded-md hover:opacity-90 transition-all">Suscribirse al Pro</button>
+            </div>
+            {/* Enterprise */}
+            <div className="bg-surface-container-low p-10 rounded-xl space-y-8">
+              <div>
+                <h4 className="text-xl font-bold mb-2">Enterprise</h4>
+                <div className="text-4xl font-headline font-bold">Custom</div>
+                <p className="text-xs text-on-surface-variant uppercase tracking-widest mt-2">Para equipos</p>
+              </div>
+              <ul className="space-y-4 text-sm text-on-surface-variant">
+                <li className="flex items-center gap-2"><span className="material-symbols-outlined text-secondary text-lg">check_circle</span> SSO Integration</li>
+                <li className="flex items-center gap-2"><span className="material-symbols-outlined text-secondary text-lg">check_circle</span> Evaluaciones a medida</li>
+                <li className="flex items-center gap-2"><span className="material-symbols-outlined text-secondary text-lg">check_circle</span> Account Manager dedicado</li>
+              </ul>
+              <button onClick={() => window.location.href = "/login"} className="w-full py-4 border border-outline-variant font-bold rounded-md hover:bg-surface-container-high transition-all">Contactar Ventas</button>
+            </div>
+          </div>
+        </section>
+
+        {/* Testimonios Section */}
+        <section className="bg-surface-container-low py-32 px-8" id="testimonios">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row justify-between items-end gap-8 mb-16">
+              <div className="max-w-xxl">
+                <h2 className="text-5xl font-headline font-bold text-on-primary-fixed mb-4">Lo que dicen los Usuarios</h2>
+                <p className="text-on-surface-variant text-lg">Ingenieros que ya están en las empresas que tú sueñas.</p>
+              </div>
+              <div className="hidden md:block">
+                <span className="material-symbols-outlined text-6xl text-secondary/20">format_quote</span>
+              </div>
+            </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Testimonial 1 */}
+              <div className="bg-surface-container-lowest p-8 rounded-xl border border-outline-variant/30 flex flex-col justify-between">
+                <p className="text-on-surface mb-8 italic">"Gracias a InterviAI pude practicar escenarios de Distributed Systems que no se encuentran en ningún libro. Pasé la entrevista de Staff Engineer en AWS a la primera."</p>
+                <div className="flex items-center gap-4">
+                  <img className="w-12 h-12 rounded-full object-cover" alt="professional portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCFVe5usGle5m3NI1RmCPs4t784IIZ7TX4zutvHPG35e8hoI08SGL9Ix0RnuNukFxHwUwB4BTr6lLz_SyjipD-cj4xlGz4V9NWMAeppnaRNrEdbU8eepyd3ipZMQv_-yvHnn_vwsOa935ZGMoQxrVHZs8bT2qiTB7rSm7wL1YKEt0NffYEqVNRRDXt0OEv-kXPDuOxhnCSSN5K1IGm1UFx4HxykLwbyQKuYkQMIAGQdUmfrytTBV3dWmUWuuKkxj0GgDv9w81AYUPU" />
+                  <div>
+                    <h5 className="font-bold text-sm">Marcos R.</h5>
+                    <p className="text-[10px] text-on-surface-variant font-label uppercase tracking-widest">L5 Engineer @ Amazon</p>
                   </div>
                 </div>
-              </motion.div>
-            ))}
-          </div>
-        </section>
-
-        {/* FOOTER */}
-        <footer className="relative z-20 bg-transparent border-t border-white/10 pt-20 pb-10 mt-20 font-sans">
-          <div className="max-w-6xl mx-auto px-10">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-16 mb-16">
-              <div className="flex flex-col gap-5">
-                <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white">Intervi <span className="text-cyan-400">AI</span></h2>
-                <p className="text-white/60 text-base leading-relaxed font-medium">Transformando el futuro profesional con análisis biométrico y visión artificial avanzada.</p>
               </div>
-              <div className="flex flex-col gap-6">
-                <h3 className="text-xs font-black uppercase tracking-[0.3em] text-cyan-500">Explorar</h3>
-                <nav className="flex flex-col gap-3">
-                  <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="text-white hover:text-cyan-400 text-lg font-bold text-left transition-all italic tracking-tight">Inicio</button>
-                  <button onClick={() => document.getElementById("mision")?.scrollIntoView({ behavior: "smooth" })} className="text-white hover:text-cyan-400 text-lg font-bold text-left transition-all italic tracking-tight">Misión</button>
-                  <button onClick={() => document.getElementById("servicios")?.scrollIntoView({ behavior: "smooth" })} className="text-white hover:text-cyan-400 text-lg font-bold text-left transition-all italic tracking-tight">Servicios</button>
-                </nav>
+              {/* Testimonial 2 */}
+              <div className="bg-surface-container-lowest p-8 rounded-xl border border-outline-variant/30 flex flex-col justify-between lg:mt-8">
+                <p className="text-on-surface mb-8 italic">"El feedback de IA es sorprendentemente preciso. Detectó muletillas en mi comunicación que ni mis mentores habían notado. Imprescindible para behavioral interview."</p>
+                <div className="flex items-center gap-4">
+                  <img className="w-12 h-12 rounded-full object-cover" alt="portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBCKTiYSGMOxA8d1FstO-jAgFxjzeDhtXP5qrmD-lnvvFuqLjemzV8pI3Kr6mO3xRqyOKdFGHxDJeDPCbx7XNKny9GsnTYOcr-t_NsUO4ONVIapRfWvDAIfqH_EGfNJbD1ZNqJWpyzE_oEkLhycVlYlfIz2BK7bFOrkuCPbTSLRtwN7of4ZZPE3uztHCBuNk0mLGuk4LjUCsbNsNiBevnCJQ_QwpFmreJax_nVPlY9sfxtRu2IrY9Cb7FWWFAHnYCe9xAPexD63C1Q" />
+                  <div>
+                    <h5 className="font-bold text-sm">Elena G.</h5>
+                    <p className="text-[10px] text-on-surface-variant font-label uppercase tracking-widest">Senior Backend @ Stripe</p>
+                  </div>
+                </div>
               </div>
-              <div className="flex flex-col gap-6">
-                <h3 className="text-xs font-black uppercase tracking-[0.3em] text-cyan-500">Contacto Directo</h3>
-                <div className="flex flex-col gap-4">
-                  <a href="https://wa.me/593989205590" className="flex items-center gap-3 text-white hover:text-green-400 transition-all font-bold text-lg"><span>📱</span> +593 98 920 5590</a>
-                  <a href="https://www.instagram.com/x.x_anabel/" className="flex items-center gap-3 text-white hover:text-pink-400 transition-all font-bold text-lg"><span>📸</span> @InterviAI</a>
-                  <a href="mailto:anabelayo2017@gmail.com" className="flex items-center gap-3 text-white hover:text-cyan-400 transition-all font-bold text-lg"><span>📩</span> info@interviai.com</a>
+              {/* Testimonial 3 */}
+              <div className="bg-surface-container-lowest p-8 rounded-xl border border-outline-variant/30 flex flex-col justify-between">
+                <p className="text-on-surface mb-8 italic">"Entrenar bajo presión en el simulador me quitó el miedo. InterviAI recrea perfectamente la tensión de una pizarra técnica real."</p>
+                <div className="flex items-center gap-4">
+                  <img className="w-12 h-12 rounded-full object-cover" alt="candid shot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCXra5BjqDVkvs2GEZKuIo3oO-8heYJ36WQOutFfQtJKFgCRvQrida-SIjM17XkOtGChZsn-nysTRGVW6Lr8eCKFWNefE9yZvfkKGWfoqCvrBqadvdJJfjOxW92kGZIq90nJlX3xp12_Prjf3mN5Qj99i0V8pe2eUD2I2yZVIBMdFAtvERqKZoQqFF8j6tnjwGHpdca5Bew6Qxp2Y0bsdtWcrMHWj0cJBsjzicXO9fqEDMG0-nRvPcabSaw9Vj7svT9D0ss6Cfhqjc" />
+                  <div>
+                    <h5 className="font-bold text-sm">Javier L.</h5>
+                    <p className="text-[10px] text-on-surface-variant font-label uppercase tracking-widest">Fullstack Dev @ Meta</p>
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="border-t border-white/5 pt-10 flex flex-col md:flex-row justify-between items-center gap-6">
-              <p className="text-[10px] font-black tracking-[0.2em] text-white/30 uppercase">© 2026 InterviAI — Todos los derechos reservados</p>
-              <p className="text-[10px] font-black tracking-[0.2em] text-white/50 uppercase">Quito, Ecuador</p>
-            </div>
           </div>
-        </footer>
-      </div>
+        </section>
+      </main>
 
-      <style jsx>{`
-        .nav-btn {
-          padding: 8px 18px; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 999px;
-          font-family: monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
-          transition: all 0.4s; color: rgba(255, 255, 255, 0.7);
-        }
-        .nav-btn:hover { background: white; color: black; box-shadow: 0 4px 20px rgba(0, 242, 255, 0.3); }
-      `}</style>
+      {/* Footer */}
+      <footer className="bg-slate-900 dark:bg-slate-950 w-full py-12 px-8 border-t border-slate-800">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="text-xl font-bold text-white font-headline">InterviAI</div>
+          <div className="flex gap-8">
+            <a className="text-slate-500 hover:text-cyan-400 transition-colors font-body text-sm tracking-wide" href="#">Privacidad</a>
+            <a className="text-slate-500 hover:text-cyan-400 transition-colors font-body text-sm tracking-wide" href="#">Términos</a>
+            <a className="text-slate-500 hover:text-cyan-400 transition-colors font-body text-sm tracking-wide" href="#">Soporte</a>
+            <a className="text-slate-500 hover:text-cyan-400 transition-colors font-body text-sm tracking-wide" href="#">API</a>
+          </div>
+          <div className="text-slate-500 font-body text-sm tracking-wide text-center md:text-right">
+            © 2026 InterviAI. Built for the modern engineer.
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
