@@ -1,6 +1,9 @@
 import { useState } from "react";
+import storeTheme from "../context/storeTheme";
 
 export default function Home() {
+  const { isDark, toggleTheme } = storeTheme();
+
   return (
     <div className="bg-background text-on-background font-body selection:bg-secondary-container selection:text-on-secondary-container">
       {/* TopNavBar */}
@@ -17,6 +20,17 @@ export default function Home() {
             <a className="text-slate-600 dark:text-slate-400 font-medium hover:text-secondary transition-colors duration-200 font-headline tracking-tight" href="#testimonios">Testimonios</a>
           </div>
           <div className="flex items-center gap-4">
+            <button 
+              onClick={toggleTheme}
+              className="p-2 rounded-md hover:bg-secondary/10 dark:hover:bg-slate-800 transition-colors duration-200"
+              aria-label="Toggle dark mode"
+            >
+              {isDark ? (
+                <span className="material-symbols-outlined text-slate-900 dark:text-yellow-400">light_mode</span>
+              ) : (
+                <span className="material-symbols-outlined text-slate-600 dark:text-slate-400">dark_mode</span>
+              )}
+            </button>
             <button onClick={() => window.location.href = "/login"} className="hidden lg:block text-slate-600 font-medium px-4 py-2 hover:text-secondary transition-all">Iniciar Sesión</button>
             <button onClick={() => window.location.href = "/register"} className="bg-primary-container text-white px-6 py-2 rounded-md font-bold transition-all active:opacity-80 active:scale-95">Empezar Gratis</button>
           </div>
@@ -36,7 +50,7 @@ export default function Home() {
             </p>
             <div className="flex flex-wrap gap-4">
               <button className="bg-primary-container hover:bg-on-primary-fixed-variant text-white px-8 py-4 rounded-md font-bold flex items-center gap-2 transition-all shadow-lg">
-                Reservar Simulación <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>terminal</span>
+                Iniciar Simulación <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>terminal</span>
               </button>
               <button className="border-2 border-outline-variant hover:border-secondary text-on-surface font-bold px-8 py-4 rounded-md transition-all">
                 Ver Demo
